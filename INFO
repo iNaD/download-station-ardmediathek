@@ -1,0 +1,10 @@
+{
+    "name": "ardmediathek",
+    "hostprefix": "ardmediathek.de",
+    "displayname": "ARD Mediathek",
+    "version": "0.1",
+    "authentication": "no",
+    "module": "ardmediathek.php",
+    "class": "SynoFileHostingARDMediathek",
+    "description": "Download Videos from ARD Mediathek"
+}
