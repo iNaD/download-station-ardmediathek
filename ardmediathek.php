@@ -2,7 +2,7 @@
 
 /**
  * @author Daniel Gehn <me@theinad.com>
- * @version 0.1
+ * @version 0.2
  * @copyright 2015 Daniel Gehn
  * @license http://opensource.org/licenses/MIT Licensed under MIT License
  */
@@ -53,57 +53,143 @@ class SynoFileHostingARDMediathek {
 
         $this->DebugLog("Getting download url for $this->Url");
 
+        /**
+         * ARD Mediathek
+         */
         if(preg_match('#documentId=([0-9]+)#i', $this->Url, $match) === 1)
         {
-            $id = $match[1];
-
-            $this->DebugLog("ID is $id");
-
-            $this->DebugLog("Getting JSON data from http://www.ardmediathek.de/play/media/$id");
-
-            $curl = curl_init();
-
-            curl_setopt($curl, CURLOPT_URL, 'http://www.ardmediathek.de/play/media/' . $id);
-            curl_setopt($curl, CURLOPT_RETURNTRANSFER, 1);
-            curl_setopt($curl, CURLOPT_USERAGENT, DOWNLOAD_STATION_USER_AGENT);
-
-            $data = json_decode(curl_exec($curl));
-
-            curl_close($curl);
-
-            $bestFormat = array(
-                'quality'   => -1,
-                'url'       => '',
-            );
-
-            foreach($data->_mediaArray as $mediaPlugin)
-            {
-                foreach($mediaPlugin->_mediaStreamArray as $mediaStream)
-                {
-                    if($mediaStream->_cdn == "default")
-                    {
-                        if(strpos($mediaStream->_stream, '.mp4') !== false && $mediaStream->_quality > $bestFormat['quality'])
-                        {
-                            $bestFormat = array(
-                                'quality'   => $mediaStream->_quality,
-                                'url'       => $mediaStream->_stream,
-                            );
-                        }
-                    }
-                }
-            }
-
-            $this->DebugLog('Best format is ' . json_encode($bestFormat));
-
-            $DownloadInfo = array();
-            $DownloadInfo[DOWNLOAD_URL] = trim($bestFormat['url']);
-
-            return $DownloadInfo;
+            return $this->ard($match[1]);
+        }
+        /**
+         * Einsfestival implementation
+         */
+        else if(strpos($this->Url, 'einsfestival.de/mediathek') !== false)
+        {
+            return $this->einsfestival();
         }
 
         $this->DebugLog("Couldn't identify id");
 
         return FALSE;
+    }
+
+    private function ard($id)
+    {
+        $this->DebugLog("ID is $id");
+
+        $this->DebugLog("Getting JSON data from http://www.ardmediathek.de/play/media/$id");
+
+        $curl = curl_init();
+
+        curl_setopt($curl, CURLOPT_URL, 'http://www.ardmediathek.de/play/media/' . $id);
+        curl_setopt($curl, CURLOPT_RETURNTRANSFER, 1);
+        curl_setopt($curl, CURLOPT_USERAGENT, DOWNLOAD_STATION_USER_AGENT);
+
+        $data = json_decode(curl_exec($curl));
+
+        curl_close($curl);
+
+        $bestStream = array(
+            'quality'   => -1,
+            'url'       => '',
+        );
+
+        foreach($data->_mediaArray as $mediaPlugin)
+        {
+            foreach($mediaPlugin->_mediaStreamArray as $mediaStream)
+            {
+                if(property_exists($mediaStream, '_stream'))
+                {
+                    if(property_exists($mediaStream, '_cdn') && $mediaStream->_cdn == "default")
+                    {
+                        $bestStream = $this->testStreamQuality($this->parseStream($mediaStream->_stream, $mediaStream->_quality), $bestStream);
+                    }
+                    else
+                    {
+                        $bestStream = $this->testStreamQuality($this->parseStream($mediaStream->_stream, $mediaStream->_quality), $bestStream);
+                    }
+                }
+            }
+        }
+
+        $this->DebugLog('Best format is ' . json_encode($bestStream));
+
+        $DownloadInfo = array();
+        $DownloadInfo[DOWNLOAD_URL] = trim($bestStream['url']);
+
+        return $DownloadInfo;
+    }
+
+    private function einsfestival()
+    {
+        $this->DebugLog("Catching einsfestival mediathek content");
+
+        $rawXML = file_get_contents($this->Url);
+
+        preg_match_all("#jQuery\(video\).attr\('src','(.*?)'\);#is", $rawXML, $matches);
+
+        $url = '';
+
+        foreach($matches[1] as $match)
+        {
+            if(preg_match('#http://(.*?).mp4#i', $match) > 0)
+            {
+                $url = $match;
+            }
+        }
+
+        $this->DebugLog('Best format is ' . $url);
+
+        $DownloadInfo = array();
+        $DownloadInfo[DOWNLOAD_URL] = trim($url);
+
+        return $DownloadInfo;
+    }
+
+    private function testStreamQuality($streams, $bestStream)
+    {
+        if(is_array($streams) && !isset($streams['url']))
+        {
+            foreach($streams as $stream)
+            {
+                $bestStream = $this->testStreamQuality($stream, $bestStream);
+            }
+
+            return $bestStream;
+        }
+
+        if(strpos($streams['url'], '.mp4') !== false && $streams['quality'] > $bestStream['quality'])
+        {
+            return $streams;
+        }
+
+        return $bestStream;
+    }
+
+    private function parseStream($stream, $baseQuality = -1)
+    {
+        if(is_array($stream))
+        {
+            $streams = array();
+            foreach($stream as $streamFile)
+            {
+                $streams[] = $this->parseStream($streamFile, $baseQuality);
+            }
+
+            return $streams;
+        }
+
+        $streamArray = array(
+            'quality' => $baseQuality,
+            'url' => $stream
+        );
+
+        if(strpos($stream, '_X.mp4') !== false)
+        {
+            $streamArray['quality'] += 1;
+        }
+
+        return $streamArray;
     }
 
     private function DebugLog($message)
