@@ -82,8 +82,9 @@ class SynoFileHostingARDMediathek {
         $curl = curl_init();
 
         curl_setopt($curl, CURLOPT_URL, 'http://www.ardmediathek.de/play/media/' . $id);
-        curl_setopt($curl, CURLOPT_RETURNTRANSFER, 1);
+        curl_setopt($curl, CURLOPT_RETURNTRANSFER, true);
         curl_setopt($curl, CURLOPT_USERAGENT, DOWNLOAD_STATION_USER_AGENT);
+        curl_setopt($curl, CURLOPT_FOLLOWLOCATION, true);
 
         $data = json_decode(curl_exec($curl));
 
@@ -124,7 +125,22 @@ class SynoFileHostingARDMediathek {
     {
         $this->DebugLog("Catching einsfestival mediathek content");
 
-        $rawXML = file_get_contents($this->Url);
+        $curl = curl_init();
+
+        curl_setopt($curl, CURLOPT_URL, $this->Url);
+        curl_setopt($curl, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($curl, CURLOPT_USERAGENT, DOWNLOAD_STATION_USER_AGENT);
+        curl_setopt($curl, CURLOPT_FOLLOWLOCATION, true);
+
+        $rawXML = curl_exec($curl);
+
+        if(!$rawXML)
+        {
+            $this->DebugLog("Failed to retrieve XML. Error Info: " . curl_error($curl));
+            return false;
+        }
+
+        curl_close($curl);
 
         preg_match_all("#jQuery\(video\).attr\('src','(.*?)'\);#is", $rawXML, $matches);
 
