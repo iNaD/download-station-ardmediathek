@@ -2,7 +2,7 @@
     "name": "ardmediathek",
     "hostprefix": "ardmediathek.de,einsfestival.de",
     "displayname": "ARD Mediathek",
-    "version": "0.2",
+    "version": "0.3",
     "authentication": "no",
     "module": "ardmediathek.php",
     "class": "SynoFileHostingARDMediathek",
