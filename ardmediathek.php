@@ -49,8 +49,6 @@ class SynoFileHostingARDMediathek {
 
     //This function gets the download url
     private function Download() {
-        $hits = array();
-
         $this->DebugLog("Getting download url for $this->Url");
 
         /**
