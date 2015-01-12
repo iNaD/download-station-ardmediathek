@@ -2,7 +2,7 @@
 
 /**
  * @author Daniel Gehn <me@theinad.com>
- * @version 0.3
+ * @version 0.4
  * @copyright 2015 Daniel Gehn
  * @license http://opensource.org/licenses/MIT Licensed under MIT License
  */
@@ -54,14 +54,23 @@ class SynoFileHostingARDMediathek {
         /**
          * ARD Mediathek
          */
-        if(preg_match('#documentId=([0-9]+)#i', $this->Url, $match) === 1)
+        if(strpos($this->Url, 'ardmediathek.de') !== false && preg_match('#documentId=([0-9]+)#i', $this->Url, $match) === 1)
         {
             return $this->ard($match[1]);
         }
+
+        /**
+         * RBB Mediathek
+         */
+        if(strpos($this->Url, 'mediathek.rbb-online.de') !== false && preg_match('#documentId=([0-9]+)#i', $this->Url, $match) === 1)
+        {
+            return $this->ard($match[1], 'http://mediathek.rbb-online.de/play/media/');
+        }
+
         /**
          * Einsfestival implementation
          */
-        else if(strpos($this->Url, 'einsfestival.de/mediathek') !== false)
+        if(strpos($this->Url, 'einsfestival.de/mediathek') !== false)
         {
             return $this->einsfestival();
         }
@@ -71,15 +80,15 @@ class SynoFileHostingARDMediathek {
         return FALSE;
     }
 
-    private function ard($id)
+    private function ard($id, $baseUrl = 'http://www.ardmediathek.de/play/media/')
     {
         $this->DebugLog("ID is $id");
 
-        $this->DebugLog("Getting JSON data from http://www.ardmediathek.de/play/media/$id");
+        $this->DebugLog("Getting JSON data from " . $baseUrl . $id);
 
         $curl = curl_init();
 
-        curl_setopt($curl, CURLOPT_URL, 'http://www.ardmediathek.de/play/media/' . $id);
+        curl_setopt($curl, CURLOPT_URL, $baseUrl . $id);
         curl_setopt($curl, CURLOPT_RETURNTRANSFER, true);
         curl_setopt($curl, CURLOPT_USERAGENT, DOWNLOAD_STATION_USER_AGENT);
         curl_setopt($curl, CURLOPT_FOLLOWLOCATION, true);
@@ -88,6 +97,11 @@ class SynoFileHostingARDMediathek {
 
         curl_close($curl);
 
+        return $this->getBestStream($data);
+    }
+
+    private function getBestStream($data)
+    {
         $bestStream = array(
             'quality'   => -1,
             'url'       => '',
@@ -99,9 +113,12 @@ class SynoFileHostingARDMediathek {
             {
                 if(property_exists($mediaStream, '_stream'))
                 {
-                    if(property_exists($mediaStream, '_cdn') && $mediaStream->_cdn == "default")
+                    if(property_exists($mediaStream, '_cdn'))
                     {
-                        $bestStream = $this->testStreamQuality($this->parseStream($mediaStream->_stream, $mediaStream->_quality), $bestStream);
+                        if($mediaStream->_cdn == "default" || ($mediaStream->_cdn == "akamai" && $this->startsWith($mediaStream->_stream, 'http')))
+                        {
+                            $bestStream = $this->testStreamQuality($this->parseStream($mediaStream->_stream, $mediaStream->_quality), $bestStream);
+                        }
                     }
                     else
                     {
@@ -212,6 +229,11 @@ class SynoFileHostingARDMediathek {
         {
             file_put_contents($this->LogPath, $message . "\n", FILE_APPEND);
         }
+    }
+
+    private function startsWith($haystack, $needle) {
+        // search backwards starting from haystack length characters from the end
+        return $needle === "" || strrpos($haystack, $needle, -strlen($haystack)) !== FALSE;
     }
 }
 ?>

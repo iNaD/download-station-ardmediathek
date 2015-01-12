@@ -1,5 +1,9 @@
 # Synology Download Station Hoster Plugin für ARD Mediathek
 
+## Features
+- Unterstützte Mediatheken: [ARD](http://www.ardmediathek.de/), [Einsfestival](http://www.einsfestival.de/mediathek/), [RBB](http://mediathek.rbb-online.de/tv)
+- Lädt in der höchst verfügbaren MP4 Qualität herunter
+
 ## Installation
 
 1. Im Webinterface von der Download Station die Einstellungen aufrufen.
