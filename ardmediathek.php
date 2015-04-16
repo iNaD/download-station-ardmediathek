@@ -2,7 +2,7 @@
 
 /**
  * @author Daniel Gehn <me@theinad.com>
- * @version 0.4
+ * @version 0.5
  * @copyright 2015 Daniel Gehn
  * @license http://opensource.org/licenses/MIT Licensed under MIT License
  */
@@ -27,8 +27,6 @@ class SynoFileHostingARDMediathek {
 
     //This function returns download url.
     public function GetDownloadInfo() {
-        $ret = FALSE;
-
         $this->DebugLog("GetDownloadInfo called");
 
         $ret = $this->Download();
@@ -54,7 +52,7 @@ class SynoFileHostingARDMediathek {
         /**
          * ARD Mediathek
          */
-        if(strpos($this->Url, 'ardmediathek.de') !== false && preg_match('#documentId=([0-9]+)#i', $this->Url, $match) === 1)
+        if((strpos($this->Url, 'ardmediathek.de') !== false || strpos($this->Url, 'mediathek.daserste.de') !== false) && preg_match('#documentId=([0-9]+)#i', $this->Url, $match) === 1)
         {
             return $this->ard($match[1]);
         }
