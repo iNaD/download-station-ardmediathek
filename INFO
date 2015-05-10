@@ -2,7 +2,7 @@
     "name": "ardmediathek",
     "hostprefix": "daserste.de,ardmediathek.de,einsfestival.de,rbb-online.de",
     "displayname": "ARD Mediathek",
-    "version": "0.5",
+    "version": "0.6a",
     "authentication": "no",
     "module": "ardmediathek.php",
     "class": "SynoFileHostingARDMediathek",

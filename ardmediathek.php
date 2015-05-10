@@ -2,7 +2,7 @@
 
 /**
  * @author Daniel Gehn <me@theinad.com>
- * @version 0.5
+ * @version 0.6a
  * @copyright 2015 Daniel Gehn
  * @license http://opensource.org/licenses/MIT Licensed under MIT License
  */
@@ -14,7 +14,7 @@ class SynoFileHostingARDMediathek {
     private $HostInfo;
 
     private $LogPath = '/tmp/ard-mediathek.log';
-    private $LogEnabled = false;
+    private $LogEnabled = true;
 
     public function __construct($Url, $Username = '', $Password = '', $HostInfo = '') {
         $this->Url = $Url;
@@ -54,7 +54,7 @@ class SynoFileHostingARDMediathek {
          */
         if((strpos($this->Url, 'ardmediathek.de') !== false || strpos($this->Url, 'mediathek.daserste.de') !== false) && preg_match('#documentId=([0-9]+)#i', $this->Url, $match) === 1)
         {
-            return $this->ard($match[1]);
+            return $this->ard($match[1], $this->getTitle($this->Url));
         }
 
         /**
@@ -62,7 +62,7 @@ class SynoFileHostingARDMediathek {
          */
         if(strpos($this->Url, 'mediathek.rbb-online.de') !== false && preg_match('#documentId=([0-9]+)#i', $this->Url, $match) === 1)
         {
-            return $this->ard($match[1], 'http://mediathek.rbb-online.de/play/media/');
+            return $this->ard($match[1], $this->getTitle($this->Url), 'http://mediathek.rbb-online.de/play/media/');
         }
 
         /**
@@ -78,7 +78,31 @@ class SynoFileHostingARDMediathek {
         return FALSE;
     }
 
-    private function ard($id, $baseUrl = 'http://www.ardmediathek.de/play/media/')
+    private function getTitle($url) {
+        $curl = curl_init();
+
+        curl_setopt($curl, CURLOPT_URL, $url);
+        curl_setopt($curl, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($curl, CURLOPT_USERAGENT, DOWNLOAD_STATION_USER_AGENT);
+        curl_setopt($curl, CURLOPT_FOLLOWLOCATION, true);
+        curl_setopt($curl, CURLOPT_SSL_VERIFYHOST, false);
+        curl_setopt($curl, CURLOPT_SSL_VERIFYPEER, false);
+
+        $rawXML = curl_exec($curl);
+
+        $episodeTitle = '';
+
+        $match = array();
+
+        if(preg_match('#<meta name="dcterms.title" content="(.*?)"\/>#i', $rawXML, $match) == 1)
+        {
+            $episodeTitle = $match[1];
+        }
+
+        return $episodeTitle;
+    }
+
+    private function ard($id, $title = '', $baseUrl = 'http://www.ardmediathek.de/play/media/')
     {
         $this->DebugLog("ID is $id");
 
@@ -90,15 +114,17 @@ class SynoFileHostingARDMediathek {
         curl_setopt($curl, CURLOPT_RETURNTRANSFER, true);
         curl_setopt($curl, CURLOPT_USERAGENT, DOWNLOAD_STATION_USER_AGENT);
         curl_setopt($curl, CURLOPT_FOLLOWLOCATION, true);
+        curl_setopt($curl, CURLOPT_SSL_VERIFYHOST, false);
+        curl_setopt($curl, CURLOPT_SSL_VERIFYPEER, false);
 
         $data = json_decode(curl_exec($curl));
 
         curl_close($curl);
 
-        return $this->getBestStream($data);
+        return $this->getBestStream($data, $title);
     }
 
-    private function getBestStream($data)
+    private function getBestStream($data, $title = '')
     {
         $bestStream = array(
             'quality'   => -1,
@@ -128,8 +154,25 @@ class SynoFileHostingARDMediathek {
 
         $this->DebugLog('Best format is ' . json_encode($bestStream));
 
+        $url = trim($bestStream['url']);
+
+        $filename = '';
+        $pathinfo = pathinfo($url);
+
+        if(empty($title))
+        {
+            $filename = $pathinfo['basename'];
+        }
+        else
+        {
+            $filename .=  $title . '.' . $pathinfo['extension'];
+        }
+
+        $this->DebugLog('Filename based on title "' . $title . '" is: "' . $filename . '"');
+
         $DownloadInfo = array();
-        $DownloadInfo[DOWNLOAD_URL] = trim($bestStream['url']);
+        $DownloadInfo[DOWNLOAD_URL] = $url;
+        $DownloadInfo[DOWNLOAD_FILENAME] = $filename;
 
         return $DownloadInfo;
     }
@@ -144,6 +187,8 @@ class SynoFileHostingARDMediathek {
         curl_setopt($curl, CURLOPT_RETURNTRANSFER, true);
         curl_setopt($curl, CURLOPT_USERAGENT, DOWNLOAD_STATION_USER_AGENT);
         curl_setopt($curl, CURLOPT_FOLLOWLOCATION, true);
+        curl_setopt($curl, CURLOPT_SSL_VERIFYHOST, false);
+        curl_setopt($curl, CURLOPT_SSL_VERIFYPEER, false);
 
         $rawXML = curl_exec($curl);
 
@@ -169,8 +214,39 @@ class SynoFileHostingARDMediathek {
 
         $this->DebugLog('Best format is ' . $url);
 
+        $url = trim($url);
+
+        $episodeTitle = '';
+        $filename = '';
+        $pathinfo = pathinfo($url);
+
+        $match = array();
+
+        if(preg_match('#class="videoInfoHead">(.*?)<\/#i', $rawXML, $match) == 1)
+        {
+            $episodeTitle = $match[1];
+            $filename .= $episodeTitle;
+        }
+        else
+        {
+            $filename .= $pathinfo['basename'];
+        }
+
+
+        if(empty($filename))
+        {
+            $filename = $pathinfo['basename'];
+        }
+        else
+        {
+            $filename .= '.' . $pathinfo['extension'];
+        }
+
+        $this->DebugLog('Filename based on episodeTitle "' . $episodeTitle . '" is: "' . $filename . '"');
+
         $DownloadInfo = array();
-        $DownloadInfo[DOWNLOAD_URL] = trim($url);
+        $DownloadInfo[DOWNLOAD_URL] = $url;
+        $DownloadInfo[DOWNLOAD_FILENAME] = $filename;
 
         return $DownloadInfo;
     }
