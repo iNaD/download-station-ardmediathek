@@ -3,6 +3,7 @@
 ## Features
 - Unterstützte Mediatheken: [ARD](http://www.ardmediathek.de/), [Einsfestival](http://www.einsfestival.de/mediathek/), [RBB](http://mediathek.rbb-online.de/tv)
 - Lädt in der höchst verfügbaren MP4 Qualität herunter
+- Datei wird anhand des Titels benannt
 
 ## Installation
 
