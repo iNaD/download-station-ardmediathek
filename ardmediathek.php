@@ -7,46 +7,13 @@
  * @license http://opensource.org/licenses/MIT Licensed under MIT License
  */
 
-class SynoFileHostingARDMediathek {
-    private $Url;
-    private $Username;
-    private $Password;
-    private $HostInfo;
+require_once 'provider.php';
 
-    private $LogPath = '/tmp/ard-mediathek.log';
-    private $LogEnabled = true;
+class SynoFileHostingARDMediathek extends TheiNaDProvider{
 
-    public function __construct($Url, $Username = '', $Password = '', $HostInfo = '') {
-        $this->Url = $Url;
-        $this->Username = $Username;
-        $this->Password = $Password;
-        $this->HostInfo = $HostInfo;
+    protected $LogPath = '/tmp/ard-mediathek.log';
 
-        $this->DebugLog("URL: $Url");
-    }
-
-    //This function returns download url.
     public function GetDownloadInfo() {
-        $this->DebugLog("GetDownloadInfo called");
-
-        $ret = $this->Download();
-
-        return $ret;
-    }
-
-    public function onDownloaded()
-    {
-    }
-
-    public function Verify($ClearCookie = '')
-    {
-        $this->DebugLog("Verifying User");
-
-        return USER_IS_PREMIUM;
-    }
-
-    //This function gets the download url
-    private function Download() {
         $this->DebugLog("Getting download url for $this->Url");
 
         /**
@@ -79,16 +46,11 @@ class SynoFileHostingARDMediathek {
     }
 
     private function getTitle($url) {
-        $curl = curl_init();
-
-        curl_setopt($curl, CURLOPT_URL, $url);
-        curl_setopt($curl, CURLOPT_RETURNTRANSFER, true);
-        curl_setopt($curl, CURLOPT_USERAGENT, DOWNLOAD_STATION_USER_AGENT);
-        curl_setopt($curl, CURLOPT_FOLLOWLOCATION, true);
-        curl_setopt($curl, CURLOPT_SSL_VERIFYHOST, false);
-        curl_setopt($curl, CURLOPT_SSL_VERIFYPEER, false);
-
-        $rawXML = curl_exec($curl);
+        $rawXML = $this->curlRequest($url);
+        if($rawXML === null)
+        {
+            return '';
+        }
 
         $episodeTitle = '';
 
@@ -108,18 +70,13 @@ class SynoFileHostingARDMediathek {
 
         $this->DebugLog("Getting JSON data from " . $baseUrl . $id);
 
-        $curl = curl_init();
+        $data = json_decode($this->curlRequest($baseUrl . $id));
 
-        curl_setopt($curl, CURLOPT_URL, $baseUrl . $id);
-        curl_setopt($curl, CURLOPT_RETURNTRANSFER, true);
-        curl_setopt($curl, CURLOPT_USERAGENT, DOWNLOAD_STATION_USER_AGENT);
-        curl_setopt($curl, CURLOPT_FOLLOWLOCATION, true);
-        curl_setopt($curl, CURLOPT_SSL_VERIFYHOST, false);
-        curl_setopt($curl, CURLOPT_SSL_VERIFYPEER, false);
+        $this->DebugLog(json_encode($data));
 
-        $data = json_decode(curl_exec($curl));
-
-        curl_close($curl);
+        if($data === null) {
+            return false;
+        }
 
         return $this->getBestStream($data, $title);
     }
@@ -172,7 +129,7 @@ class SynoFileHostingARDMediathek {
 
         $DownloadInfo = array();
         $DownloadInfo[DOWNLOAD_URL] = $url;
-        $DownloadInfo[DOWNLOAD_FILENAME] = $filename;
+        $DownloadInfo[DOWNLOAD_FILENAME] = $this->safeFilename($filename);
 
         return $DownloadInfo;
     }
@@ -181,24 +138,12 @@ class SynoFileHostingARDMediathek {
     {
         $this->DebugLog("Catching einsfestival mediathek content");
 
-        $curl = curl_init();
+        $rawXML = $this->curlRequest($this->Url);
 
-        curl_setopt($curl, CURLOPT_URL, $this->Url);
-        curl_setopt($curl, CURLOPT_RETURNTRANSFER, true);
-        curl_setopt($curl, CURLOPT_USERAGENT, DOWNLOAD_STATION_USER_AGENT);
-        curl_setopt($curl, CURLOPT_FOLLOWLOCATION, true);
-        curl_setopt($curl, CURLOPT_SSL_VERIFYHOST, false);
-        curl_setopt($curl, CURLOPT_SSL_VERIFYPEER, false);
-
-        $rawXML = curl_exec($curl);
-
-        if(!$rawXML)
+        if($rawXML === null)
         {
-            $this->DebugLog("Failed to retrieve XML. Error Info: " . curl_error($curl));
             return false;
         }
-
-        curl_close($curl);
 
         preg_match_all("#jQuery\(video\).attr\('src','(.*?)'\);#is", $rawXML, $matches);
 
@@ -224,29 +169,19 @@ class SynoFileHostingARDMediathek {
 
         if(preg_match('#class="videoInfoHead">(.*?)<\/#i', $rawXML, $match) == 1)
         {
-            $episodeTitle = $match[1];
-            $filename .= $episodeTitle;
+            $episodeTitle = mb_convert_encoding($match[1], "UTF-8", "ISO-8859-1");
+            $filename .= $episodeTitle . '.' . $pathinfo['extension'];
         }
         else
         {
             $filename .= $pathinfo['basename'];
         }
 
-
-        if(empty($filename))
-        {
-            $filename = $pathinfo['basename'];
-        }
-        else
-        {
-            $filename .= '.' . $pathinfo['extension'];
-        }
-
         $this->DebugLog('Filename based on episodeTitle "' . $episodeTitle . '" is: "' . $filename . '"');
 
         $DownloadInfo = array();
         $DownloadInfo[DOWNLOAD_URL] = $url;
-        $DownloadInfo[DOWNLOAD_FILENAME] = $filename;
+        $DownloadInfo[DOWNLOAD_FILENAME] = $this->safeFilename($filename);
 
         return $DownloadInfo;
     }
@@ -297,17 +232,5 @@ class SynoFileHostingARDMediathek {
         return $streamArray;
     }
 
-    private function DebugLog($message)
-    {
-        if($this->LogEnabled === true)
-        {
-            file_put_contents($this->LogPath, $message . "\n", FILE_APPEND);
-        }
-    }
-
-    private function startsWith($haystack, $needle) {
-        // search backwards starting from haystack length characters from the end
-        return $needle === "" || strrpos($haystack, $needle, -strlen($haystack)) !== FALSE;
-    }
 }
 ?>
