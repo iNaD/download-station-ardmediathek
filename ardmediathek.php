@@ -9,7 +9,7 @@
 
 require_once 'provider.php';
 
-class SynoFileHostingARDMediathek extends TheiNaDProvider{
+class SynoFileHostingARDMediathek extends TheiNaDProvider {
 
     protected $LogPath = '/tmp/ard-mediathek.log';
 
