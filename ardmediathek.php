@@ -45,7 +45,7 @@ class SynoFileHostingARDMediathek extends TheiNaDProvider {
         return FALSE;
     }
 
-    private function getTitle($url) {
+    protected function getTitle($url) {
         $rawXML = $this->curlRequest($url);
         if($rawXML === null)
         {
@@ -64,7 +64,7 @@ class SynoFileHostingARDMediathek extends TheiNaDProvider {
         return $episodeTitle;
     }
 
-    private function ard($id, $title = '', $baseUrl = 'http://www.ardmediathek.de/play/media/')
+    protected function ard($id, $title = '', $baseUrl = 'http://www.ardmediathek.de/play/media/')
     {
         $this->DebugLog("ID is $id");
 
@@ -81,7 +81,7 @@ class SynoFileHostingARDMediathek extends TheiNaDProvider {
         return $this->getBestStream($data, $title);
     }
 
-    private function getBestStream($data, $title = '')
+    protected function getBestStream($data, $title = '')
     {
         $bestStream = array(
             'quality'   => -1,
@@ -134,7 +134,7 @@ class SynoFileHostingARDMediathek extends TheiNaDProvider {
         return $DownloadInfo;
     }
 
-    private function einsfestival()
+    protected function einsfestival()
     {
         $this->DebugLog("Catching einsfestival mediathek content");
 
@@ -186,7 +186,7 @@ class SynoFileHostingARDMediathek extends TheiNaDProvider {
         return $DownloadInfo;
     }
 
-    private function testStreamQuality($streams, $bestStream)
+    protected function testStreamQuality($streams, $bestStream)
     {
         if(is_array($streams) && !isset($streams['url']))
         {
@@ -206,7 +206,7 @@ class SynoFileHostingARDMediathek extends TheiNaDProvider {
         return $bestStream;
     }
 
-    private function parseStream($stream, $baseQuality = -1)
+    protected function parseStream($stream, $baseQuality = -1)
     {
         if(is_array($stream))
         {
